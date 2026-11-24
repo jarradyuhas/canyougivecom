@@ -1,0 +1,754 @@
+<?php
+declare(strict_types=1);
+
+namespace WP_Rocket\Engine\License;
+
+use WP_Rocket\Abstract_Render;
+use WP_Rocket\Admin\Options_Data;
+use WP_Rocket\Engine\License\API\Currency;
+use WP_Rocket\Engine\License\API\Pricing;
+use WP_Rocket\Engine\License\API\User;
+
+class Renewal extends Abstract_Render {
+	/**
+	 * Pricing instance
+	 *
+	 * @var Pricing
+	 */
+	private $pricing;
+
+	/**
+	 * User instance
+	 *
+	 * @var User
+	 */
+	private $user;
+
+	/**
+	 * Options_Data instance
+	 *
+	 * @var Options_Data
+	 */
+	private $options;
+
+	/**
+	 * Instantiate the class
+	 *
+	 * @param Pricing      $pricing       Pricing instance.
+	 * @param User         $user          User instance.
+	 * @param Options_Data $options       Options_Data instance.
+	 * @param string       $template_path Path to the views.
+	 */
+	public function __construct( Pricing $pricing, User $user, Options_Data $options, $template_path ) {
+		parent::__construct( $template_path );
+
+		$this->pricing = $pricing;
+		$this->user    = $user;
+		$this->options = $options;
+	}
+
+	/**
+	 * Returns the renewal banner HTML for users expiring in less than 30 days
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return string
+	 */
+	public function get_renewal_soon_banner(): string {
+		if ( rocket_get_constant( 'WP_ROCKET_WHITE_LABEL_ACCOUNT' ) ) {
+			return '';
+		}
+
+		if ( $this->user->is_revoked() ) {
+			return '';
+		}
+
+		if ( $this->user->is_license_expired() ) {
+			return '';
+		}
+
+		if ( $this->user->is_trial_customer() ) {
+			return '';
+		}
+
+		if ( ! $this->is_expired_soon() ) {
+			return '';
+		}
+
+		$data              = $this->get_banner_data();
+		$data['countdown'] = $this->get_countdown_data();
+		// No price line when the pricing data is unavailable, rather than a misleading "$0.00".
+		$data['more_info'] = 0 < $this->get_price();
+
+		if ( -1 === $this->user->get_license_type() ) {
+			$data['message']   = esc_html__( 'You will soon lose the features that keep your site fast, plus access to updates and support.', 'rocket' );
+			$data['more_info'] = false;
+		}
+
+		return (string) $this->generate( 'renewal-soon-banner', $data );
+	}
+
+	/**
+	 * Returns the renewal banner HTML for expired users
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return string
+	 */
+	public function get_renewal_expired_banner(): string {
+		if ( rocket_get_constant( 'WP_ROCKET_WHITE_LABEL_ACCOUNT' ) ) {
+			return '';
+		}
+
+		if ( 0 === $this->user->get_license_expiration() ) {
+			return '';
+		}
+
+		if ( ! $this->user->is_license_expired() ) {
+			return '';
+		}
+
+		if ( false !== get_transient( 'rocket_renewal_banner_' . get_current_user_id() ) ) {
+			return '';
+		}
+
+		if ( $this->user->is_revoked() ) {
+			return '';
+		}
+
+		// Trial customers see the trial-ended banner right away: the auto-renew grace period below does not apply to them.
+		if ( $this->user->is_trial_customer() ) {
+			return (string) $this->generate( 'trial-expired-banner', [ 'renewal_url' => $this->user->get_renewal_url() ] );
+		}
+
+		$expiration    = $this->user->get_license_expiration();
+		$expired_since = ( $this->get_current_time() - $expiration ) / DAY_IN_SECONDS;
+
+		if (
+			$this->user->is_auto_renew()
+			&&
+			4 > $expired_since
+		) {
+			return '';
+		}
+
+		$renewal_url = $this->user->get_renewal_url();
+		$ocd_enabled = $this->options->get( 'optimize_css_delivery', 0 );
+
+		$message  = null;
+		$template = 'renewal-expired-banner';
+		$args     = [
+			'renewal_url' => $renewal_url,
+			'message'     => $message,
+		];
+
+		if ( $ocd_enabled ) {
+			if ( 15 > $expired_since ) {
+				$template              = 'renewal-expired-banner-ocd';
+				$args['disabled_date'] = date_i18n( get_option( 'date_format' ), $expiration + 15 * DAY_IN_SECONDS );
+			} elseif ( 90 > $expired_since ) {
+				$template = 'renewal-expired-banner-ocd-disabled';
+			} elseif ( 90 >= $expired_since ) {
+				// Exactly 90 days: nothing is displayed.
+				return '';
+			}
+		}
+
+		// No price line when the pricing data is unavailable, rather than a misleading "$0.00".
+		if ( 'renewal-expired-banner-ocd' !== $template && 0 < $this->get_price() ) {
+			$args['message'] = sprintf(
+				// translators: %1$s = <strong>, %2$s = </strong>, %3$s = renewal price.
+				esc_html__( 'Renew your license now at %1$s%3$s%2$s.', 'rocket' ),
+				'<strong>',
+				'</strong>',
+				$this->get_renewal_price_html()
+			);
+		}
+
+		return (string) $this->generate( $template, $args );
+	}
+
+	/**
+	 * Returns the current timestamp. A seam so the day-based branches can be tested at an exact time.
+	 *
+	 * @since 3.24
+	 *
+	 * @return int
+	 */
+	protected function get_current_time(): int {
+		return time();
+	}
+
+	/**
+	 * Get base data to display in the banners
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return array
+	 */
+	private function get_banner_data() {
+		$price = $this->get_renewal_price_html();
+
+		$message = sprintf(
+			// translators: %1$s = <strong>, %2$s = </strong>, %3$s = renewal price.
+			esc_html__( 'Renew now at %1$s%3$s%2$s and keep your site optimized.', 'rocket' ),
+			'<strong>',
+			'</strong>',
+			$price
+		);
+
+		if ( $this->is_grandfather() ) {
+			$message = sprintf(
+				// translators: %1$s = <strong>, %2$s = </strong>, %3$s = renewal price.
+				esc_html__( 'Renew now at %1$s%3$s%2$s and keep your site optimized.', 'rocket' ),
+				'<strong>',
+				'</strong>',
+				$price
+			);
+		}
+
+		return [
+			'message'     => $message,
+			'renewal_url' => $this->user->get_renewal_url(),
+		];
+	}
+
+	/**
+	 * Gets the formatted renewal price followed by the tax information
+	 *
+	 * @return string
+	 */
+	private function get_renewal_price_html(): string {
+		return Currency::format_price_with_currency_symbol( number_format_i18n( $this->get_price(), 2 ), $this->user->get_currency() )
+			. ' <span class="renewal-tax__info">' . esc_html__( '(excl. taxes)', 'rocket' ) . '</span>';
+	}
+
+	/**
+	 * AJAX callback to dismiss the renewal banner for expired users
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return void
+	 */
+	public function dismiss_renewal_expired_banner() {
+		check_ajax_referer( 'rocket-ajax', 'nonce', true );
+
+		if ( ! current_user_can( 'rocket_manage_options' ) ) {
+			return;
+		}
+
+		$transient = 'rocket_renewal_banner_' . get_current_user_id();
+
+		if ( false !== get_transient( $transient ) ) {
+			return;
+		}
+
+		set_transient( $transient, 1, MONTH_IN_SECONDS );
+
+		wp_send_json_success();
+	}
+
+	/**
+	 * Adds the license expiration time to WP Rocket localize script data
+	 *
+	 * @since 3.7.5
+	 *
+	 * @param array $data Localize script data.
+	 * @return array
+	 */
+	public function add_localize_script_data( array $data ) {
+		if ( $this->user->is_license_expired() ) {
+			return $data;
+		}
+
+		if ( ! $this->is_expired_soon() ) {
+			return $data;
+		}
+
+		$data['license_expiration'] = $this->user->get_license_expiration();
+
+		return $data;
+	}
+
+	/**
+	 * Checks if the license expires in less than 30 days
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return boolean
+	 */
+	private function is_expired_soon() {
+		if ( $this->user->is_auto_renew() ) {
+			return false;
+		}
+
+		$expiration_delay = $this->user->get_license_expiration() - time();
+
+		return 30 * DAY_IN_SECONDS > $expiration_delay;
+	}
+
+	/**
+	 * Checks if the license is expiring within the specified number of days.
+	 * Skip expired users.
+	 *
+	 * @since 3.20.3
+	 *
+	 * @param int $duration_in_days Number of days to check against license expiration.
+	 * @return bool True if license expires within the specified duration, false otherwise.
+	 */
+	public function is_expiring_in( int $duration_in_days ): bool {
+		if ( $this->user->is_auto_renew() ) {
+			return false;
+		}
+
+		$expiration_delay = $this->user->get_license_expiration() - time();
+		if ( 0 >= $expiration_delay ) {
+			return false;
+		}
+
+		return $duration_in_days * DAY_IN_SECONDS >= $expiration_delay;
+	}
+
+	/**
+	 * Gets the discount corresponding to the current user status
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return int
+	 * @phpstan-ignore-next-line
+	 */
+	private function get_discount_percent() {
+		$prices = $this->get_license_pricing_data();
+
+		$renewals = $this->get_user_renewal_status();
+
+		if ( ! isset( $prices->prices, $prices->prices->renewal ) ) {
+			return 0;
+		}
+
+		if ( $renewals['is_grandfather'] ) {
+			return $renewals['discount_percent']->is_grandfather;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Is user grandfathered
+	 *
+	 * @return bool
+	 */
+	private function is_grandfather(): bool {
+		$renewals = $this->get_user_renewal_status();
+
+		return key_exists( 'is_grandfather', $renewals ) && $renewals['is_grandfather'];
+	}
+
+	/**
+	 * Is user grandmothered
+	 *
+	 * @return bool
+	 * @phpstan-ignore-next-line
+	 */
+	private function has_grandmother(): bool {
+		$renewals = $this->get_user_renewal_status();
+
+		return key_exists( 'is_grandmother', $renewals ) && $renewals['is_grandmother'];
+	}
+
+	/**
+	 * Gets the price corresponding to the current user status
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return int
+	 */
+	private function get_price() {
+		$renewals = $this->get_user_renewal_status();
+
+		$license = $this->get_license_pricing_data();
+
+		if (
+			$renewals['is_grandfather']
+			&&
+			! $renewals['is_expired']
+		) {
+			return isset( $license->prices->renewal->is_grandfather ) ? $license->prices->renewal->is_grandfather : 0;
+		}
+
+		if ( $renewals['is_grandmother'] &&
+			! $renewals['is_expired'] ) {
+			return isset( $license->prices->renewal->is_grandmother ) ? $license->prices->renewal->is_grandmother : 0;
+		}
+
+		return isset( $license->prices->renewal->not_grandfather ) ? $license->prices->renewal->not_grandfather : 0;
+	}
+
+	/**
+	 * Gets the user renewal status
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return array
+	 */
+	private function get_user_renewal_status(): array {
+		$renewals = $this->pricing->get_renewals_data();
+
+		if ( ! isset( $renewals->extra_days, $renewals->grandfather_date, $renewals->discount_percent, $renewals->grandmother_date ) ) {
+			return [];
+		}
+
+		return [
+			'discount_percent' => $renewals->discount_percent,
+			'is_expired'       => time() > ( $this->user->get_license_expiration() + ( $renewals->extra_days * DAY_IN_SECONDS ) ),
+			'is_grandfather'   => $renewals->grandfather_date > $this->user->get_creation_date(),
+			'is_grandmother'   => $renewals->grandmother_date > $this->user->get_creation_date(),
+		];
+	}
+
+	/**
+	 * Gets the license pricing data corresponding to the user license
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return object|null
+	 */
+	private function get_license_pricing_data() {
+		$type_pricing = $this->pricing->get_pricing_by_type( $this->user->get_license_type_slug() );
+
+		if ( isset( $type_pricing->prices->renewal ) ) {
+			return $type_pricing;
+		}
+
+		$license       = $this->user->get_license_type();
+		$plus_websites = $this->pricing->get_plus_websites_count();
+
+		if ( $license === $plus_websites ) {
+			return $this->pricing->get_plus_pricing();
+		} elseif (
+			$license >= $this->pricing->get_single_websites_count()
+			&&
+			$license < $plus_websites
+		) {
+			return $this->pricing->get_single_pricing();
+		}
+
+		return $this->pricing->get_infinite_pricing();
+	}
+
+	/**
+	 * Gets the countdown data to display for the renewal soon banner
+	 *
+	 * @since 3.7.5
+	 *
+	 * @return array
+	 */
+	private function get_countdown_data() {
+		$data = [
+			'days'    => 0,
+			'hours'   => 0,
+			'minutes' => 0,
+			'seconds' => 0,
+		];
+
+		if ( rocket_get_constant( 'WP_ROCKET_IS_TESTING', false ) ) {
+			return $data;
+		}
+
+		$expiration = $this->user->get_license_expiration();
+
+		if ( 0 === $expiration ) {
+			return $data;
+		}
+
+		$now = date_create();
+		$end = date_timestamp_set( date_create(), $expiration );
+
+		if ( $now > $end ) {
+			return $data;
+		}
+
+		$remaining = date_diff( $now, $end );
+		$format    = explode( ' ', $remaining->format( '%d %H %i %s' ) );
+
+		$data['days']    = $format[0];
+		$data['hours']   = $format[1];
+		$data['minutes'] = $format[2];
+		$data['seconds'] = $format[3];
+
+		return $data;
+	}
+
+	/**
+	 * Add license expiring warning to OCD label
+	 *
+	 * @param array $args Setting field arguments.
+	 *
+	 * @return array
+	 */
+	public function add_license_expire_warning( $args ): array {
+		if ( 'optimize_css_delivery' !== $args['id'] ) {
+			return $args;
+		}
+
+		if ( ! $this->user->is_license_expired() ) {
+			return $args;
+		}
+
+		$ocd           = $this->options->get( 'optimize_css_delivery', 0 );
+		$whitelabel    = rocket_get_constant( 'WP_ROCKET_WHITE_LABEL_ACCOUNT', false );
+		$expired_since = ( time() - $this->user->get_license_expiration() ) / DAY_IN_SECONDS;
+		$message       = ' <span class="wpr-icon-important wpr-checkbox-warning">';
+
+		if (
+			(
+				$whitelabel
+				&&
+				15 > $expired_since
+				&&
+				$ocd
+			)
+			||
+			(
+				! $whitelabel
+				&&
+				$this->user->is_auto_renew()
+				&&
+				4 > $expired_since
+			)
+			||
+			(
+				$whitelabel
+				&&
+				$this->user->is_auto_renew()
+				&&
+				4 > $expired_since
+				&&
+				! $ocd
+			)
+		) {
+			return $args;
+		} elseif (
+			! $whitelabel
+			&&
+			15 > $expired_since
+			&&
+			$ocd
+		) {
+			$message .= sprintf(
+				// translators: %1$s = <a>, %2$s = </a>.
+				__( 'You need a valid license to continue using this feature. %1$sRenew now%2$s before losing access.', 'rocket' ),
+				'<a href="' . esc_url( $this->user->get_renewal_url() ) . '" target="_blank">',
+				'</a>'
+			);
+		} elseif (
+			(
+				! $whitelabel
+				&&
+				15 < $expired_since
+			)
+			||
+			(
+				! $whitelabel
+				&&
+				15 > $expired_since
+				&&
+				! $ocd
+			)
+		) {
+			$message .= sprintf(
+				// translators: %1$s = <a>, %2$s = </a>.
+				__( 'You need an active license to enable this option. %1$sRenew now%2$s.', 'rocket' ),
+				'<a href="' . esc_url( $this->user->get_renewal_url() ) . '" target="_blank">',
+				'</a>'
+			);
+		} elseif (
+			(
+				$whitelabel
+				&&
+				15 < $expired_since
+			)
+			||
+			(
+				$whitelabel
+				&&
+				15 > $expired_since
+				&&
+				! $ocd
+			)
+		) {
+			$doc    = 'https://docs.wp-rocket.me/article/1711-what-happens-if-my-license-expires';
+			$locale = current( array_slice( explode( '_', get_user_locale() ), 0, 1 ) );
+
+			if ( 'fr' === $locale ) {
+				$doc = 'https://fr.docs.wp-rocket.me/article/1712-que-se-passe-t-il-si-ma-licence-expire';
+			}
+
+			$message .= sprintf(
+				// translators: %1$s = <a>, %2$s = </a>.
+				__( 'You need an active license to enable this option. %1$sMore info%2$s.', 'rocket' ),
+				'<a href="' . $doc . '?utm_source=wp_plugin&utm_medium=wp_rocket" target="_blank">',
+				'</a>'
+			);
+		}
+
+		$message .= '</span>';
+
+		$args['label'] = $args['label'] . $message;
+
+		return $args;
+	}
+
+	/**
+	 * Adds the notification bubble to WP Rocket menu item when expired
+	 *
+	 * @param string $menu_title Menu title.
+	 *
+	 * @return string
+	 */
+	public function add_expired_bubble( $menu_title ): string {
+		if ( rocket_get_constant( 'WP_ROCKET_WHITE_LABEL_ACCOUNT', false ) ) {
+			return $menu_title;
+		}
+
+		if ( ! $this->user->is_license_expired() ) {
+			return $menu_title;
+		}
+
+		if ( false !== get_transient( 'wpr_dashboard_seen_' . get_current_user_id() ) ) {
+			return $menu_title;
+		}
+
+		$expired_since = ( time() - $this->user->get_license_expiration() ) / DAY_IN_SECONDS;
+		$auto_renew    = $this->user->is_auto_renew();
+		$ocd_enabled   = $this->options->get( 'optimize_css_delivery', 0 );
+
+		if (
+			$ocd_enabled
+			&&
+			$auto_renew
+			&&
+			4 > $expired_since
+		) {
+			return $menu_title;
+		}
+
+		if (
+			! $auto_renew
+			&&
+			! $ocd_enabled
+			&&
+			4 < $expired_since
+
+		) {
+			return $menu_title;
+		}
+
+		if (
+			$auto_renew
+			&&
+			! $ocd_enabled
+			&&
+			(
+				4 > $expired_since
+				||
+				15 < $expired_since
+			)
+		) {
+			return $menu_title;
+		}
+
+		return $menu_title . ' <span class="rocket-red-bubble">!</span>';
+	}
+
+	/**
+	 * Sets the dashboard seen transient to hide the expired bubble
+	 *
+	 * @return void
+	 */
+	public function set_dashboard_seen_transient() {
+		if ( ! $this->user->is_license_expired() ) {
+			return;
+		}
+
+		if ( ! $this->options->get( 'optimize_css_delivery', 0 ) ) {
+			return;
+		}
+
+		$current_user = get_current_user_id();
+
+		if ( false !== get_transient( "wpr_dashboard_seen_{$current_user}" ) ) {
+			return;
+		}
+
+		$expired_since = ( time() - $this->user->get_license_expiration() ) / DAY_IN_SECONDS;
+
+		if ( 15 > $expired_since ) {
+			set_transient( "wpr_dashboard_seen_{$current_user}", 1, 15 * DAY_IN_SECONDS );
+		} elseif ( 15 < $expired_since ) {
+			set_transient( "wpr_dashboard_seen_{$current_user}", 1, YEAR_IN_SECONDS );
+		}
+	}
+
+	/**
+	 * Disable optimize CSS delivery setting
+	 *
+	 * @param array $args Array of setting field arguments.
+	 *
+	 * @return array
+	 */
+	public function maybe_disable_ocd( $args ) {
+		if ( 'optimize_css_delivery' !== $args['id'] ) {
+			return $args;
+		}
+
+		if ( ! $this->user->is_license_expired() ) {
+			return $args;
+		}
+
+		$expired_since = ( time() - $this->user->get_license_expiration() ) / DAY_IN_SECONDS;
+
+		if (
+			15 > $expired_since
+			||
+			(
+				$this->user->is_auto_renew()
+				&&
+				4 > $expired_since
+			)
+		) {
+			return $args;
+		}
+
+		$args['value'] = 0;
+
+		if (
+			isset( $args['container_class'] )
+			&&
+			! in_array( 'wpr-isDisabled', $args['container_class'], true )
+		) {
+			$args['container_class'][] = 'wpr-isDisabled';
+		}
+
+		$args['input_attr']['disabled'] = 1;
+
+		return $args;
+	}
+
+	/**
+	 * Disables the RUCSS & Async CSS options if license is expired since more than 15 days
+	 *
+	 * @param mixed $value Current option value.
+	 *
+	 * @return mixed
+	 */
+	public function maybe_disable_option( $value ) {
+		$expired_since = ( time() - $this->user->get_license_expiration() ) / DAY_IN_SECONDS;
+
+		if ( 15 > $expired_since ) {
+			return $value;
+		}
+
+		return 0;
+	}
+}

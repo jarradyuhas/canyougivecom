@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+	<html lang="en">
+	<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+	<title>Log In &lsaquo; Can You Give &#8212; WordPress</title>
+	    <style>
+       .login-action-lostpassword #login_error{
+           display: none;
+       }
+    </style>
+    <meta name='robots' content='noindex, follow' />
+<link href='https://fonts.gstatic.com' crossorigin rel='preconnect' />
+<link href='https://fonts.googleapis.com' rel='preconnect' />
+<link rel='stylesheet' href='https://canyougive.com/wp-admin/load-styles.php?c=1&amp;dir=ltr&amp;load%5Bchunk_0%5D=dashicons,buttons,forms,l10n,wp-base-styles,wp-tooltip,login&amp;ver=7.1.4' media='all' />
+<link rel='stylesheet' id='ionos-sso-css-css' href='https://canyougive.com/wp-content/plugins/ionos-sso/css/ionos-sso-login.css?ver=1779269356' media='all' />
+<link rel='stylesheet' id='rsssl-profile-settings-css' href='https://canyougive.com/wp-content/plugins/really-simple-ssl/assets/features/two-fa/styles.css?ver=1793069686' media='all' />
+<link rel='stylesheet' id='ionos-login-redesign-css' href='https://canyougive.com/wp-content/plugins/ionos-essentials/ionos-essentials/build/login/index.css?ver=a4f63cc6d3e771a214d7' media='all' />
+	<meta name='referrer' content='strict-origin-when-cross-origin' />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<link rel="icon" href="https://canyougive.com/wp-content/uploads/2026/09/Can-You-Give-favicon.png" sizes="32x32" />
+<link rel="icon" href="https://canyougive.com/wp-content/uploads/2026/09/Can-You-Give-favicon.png" sizes="192x192" />
+<link rel="apple-touch-icon" href="https://canyougive.com/wp-content/uploads/2026/09/Can-You-Give-favicon.png" />
+<meta name="msapplication-TileImage" content="https://canyougive.com/wp-content/uploads/2026/09/Can-You-Give-favicon.png" />
+	</head>
+	<body data-rsssl=1 class="login no-js login-action-login wp-core-ui admin-color-modern locale-en ionos-group-page">
+	<script>
+document.body.className = document.body.className.replace('no-js','js');
+</script>
+
+	        <section class="header">
+          <img
+            src="https://canyougive.com/wp-content/plugins/ionos-essentials/ionos-essentials/inc/dashboard/data/tenant-logos/ionos.svg"
+            alt="IONOS"
+            class="logo"
+          >
+        </section>			<h1 class="screen-reader-text">Log In</h1>
+			<div id="login">
+		<h1 role="presentation" class="wp-login-logo"><a href="https://wordpress.org/">Powered by WordPress</a></h1>
+	
+		<form name="loginform" id="loginform" action="https://canyougive.com/wp-login.php" method="post">
+			<p>
+				<label for="user_login">Username or Email Address</label>
+				<input type="text" name="log" id="user_login" class="input ltr" value="" size="20" autocapitalize="off" autocomplete="username" required="required" />
+			</p>
+
+			<div class="user-pass-wrap">
+				<label for="user_pass">Password</label>
+				<div class="wp-pwd">
+					<input type="password" name="pwd" id="user_pass" class="input password-input ltr" value="" size="20" autocomplete="current-password" spellcheck="false" required="required" />
+					<button type="button" class="button button-secondary wp-hide-pw hide-if-no-js" data-toggle="0" aria-label="Show password">
+						<span class="dashicons dashicons-visibility" aria-hidden="true"></span>
+					</button>
+				</div>
+			</div>
+			<p class="submit"><input type="submit" name="wp-submit" class="button button-primary button-large" id="sso_default_login" value="Log in via WordPress" /></p><p class="sso-login-or">
+					<span>
+						OR
+					</span>
+				</p><p class="sso-login-link">
+					<a href="/wp-login/?action=ionos_oauth_register" id="sso-login-link" class="button button-secondary button-large">
+						Log in via SSO
+					</a>
+				</p>
+									<p class="forgetmenot">
+				<input name="rememberme" type="checkbox" id="rememberme" value="forever"  />
+				<label for="rememberme">Remember Me</label>
+				<span class="wp-tooltip wp-is-toggletip">
+				<button aria-haspopup="dialog" aria-label="Help" class="wp-tooltip__toggle" popovertarget="rememberme-help-toggletip" type="button"><span aria-hidden="true" class="dashicons dashicons-editor-help"></span></button>
+				<span popover="auto" id="rememberme-help-toggletip" class="wp-tooltip__bubble" role="dialog" aria-label="Help" tabindex="-1" autofocus><span id="rememberme-help-toggletip-text" class="wp-tooltip__text">Selecting &quot;Remember Me&quot; increases the length of time until you&#8217;re asked to log in again on this device. To keep your account secure, use this option only on your personal devices.</span><button type="button" class="wp-tooltip__close" popovertarget="rememberme-help-toggletip" popovertargetaction="hide" aria-label="Close"><span class="dashicons dashicons-no-alt" aria-hidden="true"></span></button></span></span>			</p>
+			<p class="submit">
+				<input type="submit" name="wp-submit" id="wp-submit" class="button button-primary button-large" value="Log In" />
+									<input type="hidden" name="redirect_to" value="https://canyougive.com/wp-admin/" />
+									<input type="hidden" name="testcookie" value="1" />
+			</p>
+		</form>
+
+					<p id="nav">
+				<a class="wp-login-lost-password" href="https://canyougive.com/wp-login.php?action=lostpassword">Lost your password?</a>			</p>
+			<script>
+function wp_attempt_focus() {setTimeout( function() {try {d = document.getElementById( "user_login" );d.focus(); d.select();} catch( er ) {}}, 200);}
+wp_attempt_focus();
+if ( typeof wpOnload === 'function' ) { wpOnload() }
+</script>
+		<p id="backtoblog">
+			<a href="https://canyougive.com/">&larr; Go to Can You Give</a>		</p>
+			</div>
+		
+	    <script>
+        if ( document.getElementById('login_error') ) {
+            let userLogin = document.getElementById('user_login');
+            userLogin.value = '';
+            userLogin.setAttribute('value', '');
+        }
+    </script>
+    <script src="https://canyougive.com/wp-admin/load-scripts.php?c=1&#038;load%5Bchunk_0%5D=wp-hooks&#038;ver=7.1.4"></script>
+<script id="wp-i18n-js" src="https://canyougive.com/wp-includes/js/dist/i18n.min.js?ver=1dfe7db3940c23ea9216"></script>
+<script id="wp-i18n-js-after">
+wp.i18n.setLocaleData( { 'text direction\u0004ltr': [ 'ltr' ] } );
+//# sourceURL=wp-i18n-js-after
+</script>
+<script id="wp-private-apis-js" src="https://canyougive.com/wp-includes/js/dist/private-apis.min.js?ver=eb85f28c4c729bb4f002"></script>
+<script id="wp-url-js" src="https://canyougive.com/wp-includes/js/dist/url.min.js?ver=7b0de086d4ae11d55704"></script>
+<script id="wp-api-fetch-js" src="https://canyougive.com/wp-includes/js/dist/api-fetch.min.js?ver=6f2a4faeee3c722b1e57"></script>
+<script id="wp-api-fetch-js-after">
+wp.apiFetch.use( wp.apiFetch.createRootURLMiddleware( "https://canyougive.com/wp-json/" ) );
+wp.apiFetch.nonceMiddleware = wp.apiFetch.createNonceMiddleware( "5d4052f02c" );
+wp.apiFetch.use( wp.apiFetch.nonceMiddleware );
+wp.apiFetch.use( wp.apiFetch.mediaUploadMiddleware );
+wp.apiFetch.nonceEndpoint = "https://canyougive.com/wp-admin/admin-ajax.php?action=rest-nonce";
+//# sourceURL=wp-api-fetch-js-after
+</script>
+<script id="wp-dom-ready-js" src="https://canyougive.com/wp-includes/js/dist/dom-ready.min.js?ver=3fe927cab37bf38d6a23"></script>
+<script id="ionos-login-tracking-js" src="https://canyougive.com/wp-content/plugins/ionos-essentials/ionos-essentials/build/login/index.js?ver=a4f63cc6d3e771a214d7"></script>
+<script id="clipboard-js" src="https://canyougive.com/wp-includes/js/clipboard.min.js?ver=2.0.11"></script>
+<script id="jquery-core-js" src="https://canyougive.com/wp-includes/js/jquery/jquery.min.js?ver=3.7.1"></script>
+<script id="jquery-migrate-js" src="https://canyougive.com/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1"></script>
+<script id="zxcvbn-async-js-extra">
+var _zxcvbnSettings = {"src":"https://canyougive.com/wp-includes/js/zxcvbn.min.js"};
+//# sourceURL=zxcvbn-async-js-extra
+</script>
+<script id="zxcvbn-async-js" src="https://canyougive.com/wp-includes/js/zxcvbn-async.min.js?ver=1.0"></script>
+<script id="password-strength-meter-js-extra">
+var pwsL10n = {"unknown":"Password strength unknown","short":"Very weak","bad":"Weak","good":"Medium","strong":"Strong","mismatch":"Mismatch"};
+//# sourceURL=password-strength-meter-js-extra
+</script>
+<script id="password-strength-meter-js" src="https://canyougive.com/wp-admin/js/password-strength-meter.min.js?ver=b21080a2fc82f3029dbd8f6f45df7afa"></script>
+<script id="underscore-js" src="https://canyougive.com/wp-includes/js/underscore.min.js?ver=1.13.8"></script>
+<script id="wp-util-js-extra">
+var _wpUtilSettings = {"ajax":{"url":"/wp-admin/admin-ajax.php"}};
+//# sourceURL=wp-util-js-extra
+</script>
+<script id="wp-util-js" src="https://canyougive.com/wp-includes/js/wp-util.min.js?ver=b21080a2fc82f3029dbd8f6f45df7afa"></script>
+<script id="wp-a11y-js" src="https://canyougive.com/wp-includes/js/dist/a11y.min.js?ver=31c6cec5a4ff7aff483d"></script>
+<script id="user-profile-js-extra">
+var userProfileL10n = {"user_id":"0","nonce":"2e7f4ad98e"};
+//# sourceURL=user-profile-js-extra
+</script>
+<script id="user-profile-js" src="https://canyougive.com/wp-admin/js/user-profile.min.js?ver=b21080a2fc82f3029dbd8f6f45df7afa"></script>
+<script id="wp-tooltip-js" src="https://canyougive.com/wp-includes/js/wp-tooltip.js?ver=b21080a2fc82f3029dbd8f6f45df7afa"></script>
+	</body>
+	</html>
+	
+<!-- This website is like a Rocket, isn't it? Performance optimized by WP Rocket. Learn more: https://wp-rocket.me - Debug: cached@1793939987 -->

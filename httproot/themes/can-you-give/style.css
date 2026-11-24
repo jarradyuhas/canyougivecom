@@ -1,0 +1,13 @@
+/*
+Theme Name: Can You Give
+Theme URI: https://thefreewebsiteguys.com
+Author: The Free Website Guys
+Author URI: https://thefreewebsiteguys.com
+Description: A custom WordPress theme for the Can You Give giving portal, built by The Free Website Guys.
+Version: 1.0.1
+License: GNU General Public License v2 or later
+Text Domain: tmt
+*/
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; padding: 0; }

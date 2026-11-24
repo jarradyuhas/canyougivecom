@@ -1,0 +1,139 @@
+<?php
+/**
+ * Settings page template.
+ *
+ * @since 3.0
+ *
+ * @param array $data {
+ *      @type string $slug WP Rocket slug.
+ *      @type string $btn_submit_text Submit button text.
+ *      @type array $tools_page {
+ *          @type array $mcp_server_beacon MCP server beacon data.
+ *      }
+ * }
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+settings_errors( $data['slug'] ); ?>
+<div class="wpr-wrap wrap">
+	<h1 class="screen-reader-text"><?php esc_html_e( 'WP Rocket Settings', 'rocket' ); ?></h1>
+	<div class="wpr-body">
+
+		<header class="wpr-Header">
+			<div class="wpr-Header-logo">
+				<img src="<?php echo esc_url( WP_ROCKET_ASSETS_IMG_URL . 'logo-wprocket-dark.svg' ); ?>" width="163" height="44" alt="Logo WP Rocket" class="wpr-Header-logo-desktop">
+				<img src="<?php echo esc_url( WP_ROCKET_ASSETS_IMG_URL . 'picto-wprocket-dark.svg' ); ?>" width="28" height="50" alt="Logo WP Rocket" class="wpr-Header-logo-mobile">
+			</div>
+			<div class="wpr-Header-nav">
+				<?php $this->render_navigation(); ?>
+			</div>
+			<div class="wpr-Header-footer">
+				<?php
+				// translators: %s = Plugin version number.
+				echo esc_html( sprintf( __( 'version %s', 'rocket' ), rocket_get_constant( 'WP_ROCKET_VERSION' ) ) );
+				?>
+			</div>
+		</header>
+
+		<section class="wpr-Content<?php echo rocket_valid_key() ? '' : ' wpr-Content--noSidebar'; ?>">
+			<?php // Same page lookup as pageManager.js, run before the first paint, at the start of the content so that no section is painted before it: the other sections and the sidebar stay hidden without a flash (pageManager.js removes the style). ?>
+			<script>
+				( function () {
+					try {
+						var page = window.location.hash.slice( 1 ).split( '=' )[0] || window.localStorage.getItem( 'wpr-hash' ) || 'dashboard';
+
+						// Pages merged into another one, as in pageManager.js and mixpanel.js.
+						if ( 'imagify' === page ) {
+							page = 'media';
+						}
+
+						var content = document.querySelector( '.wpr-Content' );
+
+						content.dataset.page = page;
+
+						// pageManager.js adds it on every page: adding it now avoids a width change (layout shift) of the
+						// content and sidebar when the script runs, and applies the Dashboard container styles at first paint.
+						content.classList.add( 'isNotFull' );
+
+						if ( /^[\w-]+$/.test( page ) ) {
+							var style = document.createElement( 'style' );
+							style.id = 'wpr-first-paint';
+							style.textContent = '.wpr-Content .wpr-Page:not(#' + page + '){display:none}';
+							style.setAttribute( 'data-page', page );
+							document.head.appendChild( style );
+						}
+					} catch ( e ) {}
+				}() );
+			</script>
+			<form action="options.php" method="POST" id="<?php echo esc_attr( $data['slug'] ); ?>_options">
+				<?php settings_fields( $data['slug'] ); ?>
+				<?php $this->render_form_sections(); ?>
+				<?php $this->render_hidden_fields(); ?>
+				<input type="submit" class="wpr-button" id="wpr-options-submit" value="<?php echo esc_attr( $data['btn_submit_text'] ); ?>">
+			</form>
+			<?php
+			if ( rocket_valid_key() ) {
+				$this->render_tools_section( $data['tools_page'] );
+				$this->render_tutorials_section();
+				$this->render_plugin_section();
+			}
+			?>
+			<script>
+				// An unknown page must not blank the screen: drop the first paint style when the section does not exist.
+				( function () {
+					var style = document.getElementById( 'wpr-first-paint' );
+					var section = style ? document.getElementById( style.getAttribute( 'data-page' ) ) : null;
+
+					if ( style && ( ! section || ! section.classList.contains( 'wpr-Page' ) ) ) {
+						style.remove();
+					}
+				}() );
+			</script>
+		</section>
+
+		<?php
+		// The license validation screen only shows the license form: no sidebar (Global score, Recommendations) without a valid key.
+		$rocket_sidebar = rocket_valid_key() ? trim( (string) $this->generate( 'partials/sidebar' ) ) : '';
+
+		if ( '' !== $rocket_sidebar ) :
+			?>
+		<aside class="wpr-Sidebar">
+			<?php echo $rocket_sidebar; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Dynamic content is properly escaped in the view. ?>
+		</aside>
+		<?php endif; ?>
+	</div>
+
+	<div class="wpr-Popin wpr-Popin-Analytics">
+		<div class="wpr-Popin-header">
+			<h2 class="wpr-title1"><?php esc_html_e( 'Rocket Analytics', 'rocket' ); ?></h2>
+			<button class="wpr-Popin-close wpr-Popin-Analytics-close wpr-icon-close"></button>
+		</div>
+		<div class="wpr-Popin-content">
+			<p>
+			<?php
+				// translators: %1$s = <strong>, %2$s = </strong>.
+				printf( esc_html__( 'Below is a detailed view of all data WP Rocket will collect %1$sif granted permission.%2$s', 'rocket' ), '<strong>', '</strong>' );
+			?>
+			</p>
+			<?php echo rocket_data_collection_preview_table(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Dynamic content is properly escaped in the view. ?>
+
+			<div class="wpr-Popin-flex">
+				<p><?php esc_html_e( 'WP Rocket will never transmit any domain names or email addresses (except for license validation), IP addresses, or third-party API keys.', 'rocket' ); ?></p>
+				<div>
+					<button class="wpr-button wpr-button--small wpr-button--icon wpr-icon-check wpr-button--blue wpr-rocket-analytics-cta<?php echo (bool) get_option( 'rocket_mixpanel_optin', 0 ) ? ' wpr-isHidden' : ''; ?>"><?php esc_html_e( 'Activate Rocket analytics', 'rocket' ); ?></button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="wpr-Popin-overlay"></div>
+	<?php
+	/**
+	 * Fires after the Settings page content
+	 *
+	 * @since 3.5
+	 * @author Remy Perona
+	 */
+	do_action( 'rocket_settings_page_footer' );
+	?>
+</div>
